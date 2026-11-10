@@ -161,6 +161,7 @@
 .action-button:hover { color: #3867d6; }
 .icon-button { display: grid; width: 29px; height: 29px; flex: 0 0 auto; place-items: center; border: 1px solid transparent; border-radius: 6px; color: #8491a4; background: transparent; font-size: 15px; }
 .icon-button:hover { border-color: #e9eef8; color: #3867d6; background: #f4f7fc; }
+.icon-button:disabled { cursor: wait; opacity: .65; }
 .delete-action:hover { border-color: #f5dddd; color: #bd4d52; background: #fff7f7; }
 .list-state, .empty-state { display: flex; min-height: 235px; flex-direction: column; align-items: center; justify-content: center; color: #8c99aa; text-align: center; }
 .list-state p { margin-top: 12px; font-size: 12px; }

@@ -37,7 +37,7 @@ ApplyTrack/
 │   ├── config/db.js
 │   ├── middleware/auth.js
 │   ├── models/                  # User and Application
-│   ├── routes/                  # Authentication and application API
+│   ├── routes/                  # Authentication, application, and interview APIs
 │   ├── .env.example
 │   ├── package.json
 │   └── server.js
@@ -60,8 +60,10 @@ ApplyTrack/
 
 ### 1. Configure the backend
 
+Run these commands from the repository root.
+
 ```powershell
-cd ApplyTrack\backend
+cd backend
 npm install
 if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 ```
@@ -91,18 +93,18 @@ The local API listens on port `5000`. If Atlas is unavailable, the server still 
 In another terminal:
 
 ```powershell
-cd ApplyTrack\frontend
+cd frontend
 npm install
 if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 npm run dev
 ```
 
-Open the Vite URL (normally `http://localhost:5173`). The frontend calls `VITE_API_URL`, which defaults to `http://localhost:5000/api`.
+Open the Vite URL (normally `http://localhost:5173`). The frontend calls `VITE_API_URL` from `frontend/.env`; in development it defaults to `http://localhost:5000/api`. Production builds require `VITE_API_URL` to point at the deployed backend.
 
 ### 3. Build checks
 
 ```powershell
-cd ApplyTrack\frontend
+cd frontend
 npm run lint
 npm run build
 ```
@@ -135,27 +137,29 @@ JSON errors have a `message` field. Protected endpoints require `Authorization: 
 | `GET` | `/api/applications/:id` | Protected | Get one of the user's applications |
 | `PUT` | `/api/applications/:id` | Protected | Update one of the user's applications |
 | `DELETE` | `/api/applications/:id` | Protected | Delete one of the user's applications |
+| `GET` | `/api/interviews` | Protected | List the signed-in user's scheduled interviews |
+| `GET` | `/api/interviews/:id` | Protected | Get a scheduled interview belonging to the signed-in user |
 
 Application fields: `companyName`, `jobRole`, `location`, `jobType`, `applicationDate`, `status`, `jobDescription`, `jobLink`, `interviewDate`, and `notes`. Status values are `Applied`, `Assessment`, `Interview`, `Selected`, and `Rejected`.
 
+The API exposes three user-facing resources: accounts (`/api/auth`), applications (`/api/applications`), and interviews (`/api/interviews`). Interviews are backed by the application's optional `interviewDate`, so there is one source of truth; schedule or remove an interview by creating or updating the application.
+
 ## MongoDB Atlas troubleshooting
 
-The supplied error `querySrv ECONNREFUSED _mongodb._tcp.newsmania.9juj5cr.mongodb.net` is a **DNS SRV lookup failure**: in this environment, Node's default DNS lookup failed while the same SRV record resolved through Cloudflare DNS (`1.1.1.1`). It happens before MongoDB username/password authentication, so changing the password alone will not fix this particular error. The earlier `bad auth: authentication failed` is a separate authentication error: check the Atlas database username/password and ensure special password characters are percent-encoded in `MONGO_URI`.
-
-Check DNS from PowerShell without printing your connection string:
+If `/api/health` reports a disconnected database, verify these settings without sharing your connection string:
 
 ```powershell
-Resolve-DnsName -Type SRV _mongodb._tcp.newsmania.9juj5cr.mongodb.net
+Resolve-DnsName -Type SRV _mongodb._tcp.your-cluster.mongodb.net
 ```
 
-If PowerShell resolves the record but the backend still reports `querySrv ECONNREFUSED`:
+Replace `your-cluster.mongodb.net` with the hostname from your Atlas connection string.
 
-1. In Windows, open **Settings → Network & internet → Wi-Fi (or Ethernet) → Hardware properties → DNS server assignment → Edit**.
-2. Select **Manual**, enable IPv4, enter `1.1.1.1` and `1.0.0.1` (or `8.8.8.8` and `8.8.4.4`), save, and retry the lookup. You can compare Node's lookup with `node -e "require('node:dns').promises.resolveSrv('_mongodb._tcp.newsmania.9juj5cr.mongodb.net').then(console.log).catch(console.error)"`. A school/work network, VPN, or firewall can also block DNS; try another trusted network or ask its administrator.
-3. In Atlas, open **Database → Connect → Drivers**, select **Node.js**, and copy the current connection string. Compare its hostname with the cluster hostname shown by Atlas; don't assume an old hostname is correct.
-4. Open **Security → Database Access**. Confirm the database user exists and reset its password if needed. Put that password into your local `.env` only, URL-encoding reserved characters.
-5. Open **Security → Network Access** and add your current public IP. For Render, allow the Render service's outbound IP addresses if available. `0.0.0.0/0` permits access from anywhere and should only be a temporary diagnostic choice with a strong database password and least-privilege database user.
-6. Restart the backend and check `http://localhost:5000/api/health`. A healthy database response is HTTP 200 with `"database": "connected"`; otherwise inspect the backend's connection error without sharing its URI.
+1. Copy the current driver connection string from Atlas and verify the database username, password, and cluster hostname. URL-encode special characters in the password.
+2. Confirm Atlas Network Access permits connections from your local IP or the backend host. Prefer the narrowest allowlist supported by your deployment.
+3. Check that the network permits DNS SRV lookups and outbound MongoDB connections. A school/work network, VPN, or firewall may block them.
+4. Restart the backend and check `http://localhost:5000/api/health`. HTTP 200 reports `database: "connected"`; HTTP 503 reports `database: "disconnected"`.
+
+Never paste database connection strings or secrets into issue reports or chat.
 
 ## Deployment
 

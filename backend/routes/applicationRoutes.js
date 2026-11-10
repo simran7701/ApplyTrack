@@ -85,6 +85,9 @@ router.put("/:id", async (req, res) => {
     if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: "Invalid application ID" });
     try {
         const data = applicationInput(req.body || {});
+        if (Object.keys(data).length === 0) {
+            return res.status(400).json({ message: "Provide at least one application field to update" });
+        }
         const application = await Application.findOneAndUpdate(
             { _id: req.params.id, userId: req.user.userId },
             { $set: data },

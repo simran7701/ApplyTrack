@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import "./App.css";
-import { applicationApi, authApi, clearToken, getToken, saveToken } from "./api";
+import { applicationApi, authApi, clearToken, getToken, interviewApi, saveToken } from "./api";
 
 const STATUSES = ["Applied", "Assessment", "Interview", "Selected", "Rejected"];
 const JOB_TYPES = ["Full-time", "Part-time", "Internship", "Contract", "Other"];
@@ -100,7 +100,7 @@ function AuthScreen({ onAuthenticated, notice }) {
   );
 }
 
-function ApplicationForm({ form, setForm, editing, busy, onClose, onSubmit }) {
+function ApplicationForm({ form, setForm, editing, busy, error, onClose, onSubmit }) {
   const update = (event) => setForm({ ...form, [event.target.name]: event.target.value });
   return (
     <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
@@ -110,6 +110,7 @@ function ApplicationForm({ form, setForm, editing, busy, onClose, onSubmit }) {
           <button aria-label="Close dialog" className="icon-button" onClick={onClose} type="button">×</button>
         </div>
         <form className="application-form" onSubmit={onSubmit}>
+          {error && <div className="notice error-notice" role="alert">{error}</div>}
           <div className="form-grid">
             <label>Company name <input autoFocus maxLength="120" name="companyName" onChange={update} required value={form.companyName} /></label>
             <label>Job role <input maxLength="120" name="jobRole" onChange={update} required value={form.jobRole} /></label>
@@ -167,9 +168,12 @@ function App() {
   const [user, setUser] = useState(null);
   const [initializing, setInitializing] = useState(Boolean(getToken()));
   const [applications, setApplications] = useState([]);
+  const [interviews, setInterviews] = useState([]);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
   const [error, setError] = useState("");
+  const [formError, setFormError] = useState("");
   const [toast, setToast] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -180,11 +184,16 @@ function App() {
   const [filterType, setFilterType] = useState("All");
   const [sortOrder, setSortOrder] = useState("newest");
 
-  const loadApplications = useCallback(async () => {
+  const loadWorkspaceData = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      setApplications(await applicationApi.list());
+      const [applicationData, interviewData] = await Promise.all([
+        applicationApi.list(),
+        interviewApi.list()
+      ]);
+      setApplications(applicationData);
+      setInterviews(interviewData);
     } catch (requestError) {
       setError(requestError.message);
       if (requestError.status === 401) {
@@ -202,7 +211,7 @@ function App() {
     authApi.me().then(({ user: currentUser }) => {
       if (!active) return;
       setUser(currentUser);
-      return loadApplications();
+      return loadWorkspaceData();
     }).catch((requestError) => {
       if (!active) return;
       if (requestError.status === 401) {
@@ -215,7 +224,7 @@ function App() {
       if (active) setInitializing(false);
     });
     return () => { active = false; };
-  }, [loadApplications]);
+  }, [loadWorkspaceData]);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -241,14 +250,15 @@ function App() {
     Rejected: applications.filter((app) => app.status === "Rejected").length
   }), [applications]);
 
-  const upcomingInterviews = useMemo(() => applications
+  const upcomingInterviews = useMemo(() => interviews
     .filter((app) => app.interviewDate && new Date(`${app.interviewDate.slice(0, 10)}T23:59:59`) >= new Date())
     .sort((first, second) => new Date(first.interviewDate) - new Date(second.interviewDate))
-    .slice(0, 4), [applications]);
+    .slice(0, 4), [interviews]);
 
   const openNewForm = () => {
     setEditingId(null);
     setForm(blankForm());
+    setFormError("");
     setShowForm(true);
   };
 
@@ -266,15 +276,26 @@ function App() {
       interviewDate: application.interviewDate ? localDateInput(new Date(application.interviewDate)) : "",
       notes: application.notes || ""
     });
+    setFormError("");
     setShowForm(true);
   };
 
   const submitApplication = async (event) => {
     event.preventDefault();
+    if (!form.companyName.trim() || !form.jobRole.trim()) {
+      setFormError("Enter a company name and job role.");
+      return;
+    }
+    if (form.jobLink && !/^https?:\/\//i.test(form.jobLink.trim())) {
+      setFormError("Job link must start with http:// or https://.");
+      return;
+    }
     setBusy(true);
-    setError("");
+    setFormError("");
     const payload = {
       ...form,
+      companyName: form.companyName.trim(),
+      jobRole: form.jobRole.trim(),
       applicationDate: new Date(`${form.applicationDate}T12:00:00`).toISOString(),
       interviewDate: form.interviewDate ? new Date(`${form.interviewDate}T12:00:00`).toISOString() : null
     };
@@ -287,9 +308,13 @@ function App() {
         setToast("Application added.");
       }
       setShowForm(false);
-      await loadApplications();
+      await loadWorkspaceData();
     } catch (requestError) {
-      setError(requestError.message);
+      setFormError(requestError.message);
+      if (requestError.status === 401) {
+        clearToken();
+        setUser(null);
+      }
     } finally {
       setBusy(false);
     }
@@ -298,12 +323,21 @@ function App() {
   const removeApplication = async (application) => {
     if (!window.confirm(`Delete your ${application.jobRole} application at ${application.companyName}? This cannot be undone.`)) return;
     setError("");
+    setDeletingId(application._id);
     try {
       await applicationApi.remove(application._id);
       setApplications((current) => current.filter((item) => item._id !== application._id));
+      setInterviews((current) => current.filter((item) => item._id !== application._id));
+      setDetails((current) => current?._id === application._id ? null : current);
       setToast("Application deleted.");
     } catch (requestError) {
       setError(requestError.message);
+      if (requestError.status === 401) {
+        clearToken();
+        setUser(null);
+      }
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -311,13 +345,14 @@ function App() {
     clearToken();
     setUser(null);
     setApplications([]);
+    setInterviews([]);
     setError("");
   };
 
   if (initializing) {
     return <main className="loading-screen"><span className="spinner" /><p>Opening your workspace…</p></main>;
   }
-  if (!user) return <AuthScreen notice={error} onAuthenticated={(authenticatedUser) => { setUser(authenticatedUser); setError(""); loadApplications(); }} />;
+  if (!user) return <AuthScreen notice={error} onAuthenticated={(authenticatedUser) => { setUser(authenticatedUser); setError(""); loadWorkspaceData(); }} />;
 
   return (
     <div className="workspace">
@@ -372,7 +407,7 @@ function App() {
                   <article className="application-card" key={application._id}>
                     <div className="company-avatar">{application.companyName?.charAt(0).toUpperCase()}</div>
                     <div className="application-info"><div className="company-title"><h3>{application.companyName}</h3><span className={`status-badge ${application.status.toLowerCase()}`}>{application.status}</span></div><p>{application.jobRole}</p><div className="application-meta"><span>⌖ {application.location || "Location not specified"}</span><span>·</span><span>{application.jobType}</span><span>·</span><span>Applied {prettyDate(application.applicationDate)}</span></div>{application.interviewDate && <p className="interview-reminder">◷ Interview {prettyDate(application.interviewDate)}</p>}</div>
-                    <div className="application-actions"><button className="action-button" onClick={() => setDetails(application)} type="button">Details</button><button aria-label={`Edit ${application.companyName}`} className="icon-button" onClick={() => openEditForm(application)} title="Edit" type="button">✎</button><button aria-label={`Delete ${application.companyName}`} className="icon-button delete-action" onClick={() => removeApplication(application)} title="Delete" type="button">⌫</button></div>
+                    <div className="application-actions"><button className="action-button" onClick={() => setDetails(application)} type="button">Details</button><button aria-label={`Edit ${application.companyName}`} className="icon-button" onClick={() => openEditForm(application)} title="Edit" type="button">✎</button><button aria-label={deletingId === application._id ? `Deleting ${application.companyName}` : `Delete ${application.companyName}`} aria-busy={deletingId === application._id} className="icon-button delete-action" disabled={deletingId === application._id} onClick={() => removeApplication(application)} title={deletingId === application._id ? "Deleting" : "Delete"} type="button">{deletingId === application._id ? "…" : "⌫"}</button></div>
                   </article>
                 ))}
               </div>
@@ -393,7 +428,7 @@ function App() {
         <footer className="page-footer"><span>ApplyTrack <span>·</span> Your search, organized.</span><span>Built for your next chapter</span></footer>
       </main>
 
-      {showForm && <ApplicationForm busy={busy} editing={Boolean(editingId)} form={form} onClose={() => setShowForm(false)} onSubmit={submitApplication} setForm={setForm} />}
+      {showForm && <ApplicationForm busy={busy} editing={Boolean(editingId)} error={formError} form={form} onClose={() => setShowForm(false)} onSubmit={submitApplication} setForm={setForm} />}
       {details && <ApplicationDetails application={details} onClose={() => setDetails(null)} />}
       {toast && <div aria-live="polite" className="toast"><span>✓</span>{toast}</div>}
     </div>

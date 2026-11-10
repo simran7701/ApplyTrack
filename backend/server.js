@@ -9,12 +9,14 @@ const mongoose = require("mongoose");
 const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const applicationRoutes = require("./routes/applicationRoutes");
+const interviewRoutes = require("./routes/interviewRoutes");
 
 const app = express();
 const configuredOrigins = (process.env.CLIENT_URL || process.env.FRONTEND_URL || "")
     .split(",")
     .map((origin) => origin.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .map((origin) => new URL(origin).origin);
 const allowedOrigins = configuredOrigins.length > 0
     ? configuredOrigins
     : process.env.NODE_ENV === "production"
@@ -48,6 +50,7 @@ app.get("/api/health", (req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/applications", applicationRoutes);
+app.use("/api/interviews", interviewRoutes);
 
 app.use((req, res) => {
     res.status(404).json({ message: "Route not found" });

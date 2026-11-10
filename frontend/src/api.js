@@ -1,4 +1,6 @@
-const API_BASE_URL = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/$/, "");
+const API_BASE_URL = (
+  import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:5000/api" : "")
+).replace(/\/$/, "");
 const TOKEN_KEY = "applytrack_token";
 
 export const getToken = () => window.localStorage.getItem(TOKEN_KEY);
@@ -6,6 +8,10 @@ export const saveToken = (token) => window.localStorage.setItem(TOKEN_KEY, token
 export const clearToken = () => window.localStorage.removeItem(TOKEN_KEY);
 
 async function request(path, options = {}) {
+  if (!API_BASE_URL) {
+    throw new Error("The API URL is not configured. Set VITE_API_URL to your backend URL.");
+  }
+
   const headers = new Headers(options.headers || {});
   const token = getToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
@@ -51,4 +57,9 @@ export const applicationApi = {
     body: JSON.stringify(application)
   }),
   remove: (id) => request(`/applications/${encodeURIComponent(id)}`, { method: "DELETE" })
+};
+
+export const interviewApi = {
+  list: () => request("/interviews"),
+  get: (id) => request(`/interviews/${encodeURIComponent(id)}`)
 };
