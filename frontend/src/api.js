@@ -1,7 +1,7 @@
 const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
 const defaultApiUrl = import.meta.env.DEV
   ? "http://localhost:5000"
-  : "https://applytrack-1-seei.onrender.com";
+  : "https://applytrack-qcn6.onrender.com";
 const isLocalApiUrl = (value) => {
   try {
     const hostname = new URL(value).hostname;
