@@ -99,7 +99,7 @@ if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 npm run dev
 ```
 
-Open the Vite URL (normally `http://localhost:5173`). The frontend calls `VITE_API_URL` from `frontend/.env`; in development it defaults to `http://localhost:5000/api`. In production it defaults to the deployed backend. If configured, `VITE_API_URL` may be either the backend origin or the backend origin with `/api`; the frontend normalizes it to exactly one `/api` path.
+Open the Vite URL (normally `http://localhost:5173`). `VITE_API_URL` is optional: in development the frontend defaults to `http://localhost:5000/api`, and in production it defaults to the deployed backend. If configured, it may be either the backend origin or the backend origin with `/api`; the frontend normalizes it to exactly one `/api` path. A localhost URL is ignored in production to prevent a local development setting from being baked into the deployed app.
 
 ### 3. Build checks
 

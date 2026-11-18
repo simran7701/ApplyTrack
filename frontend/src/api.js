@@ -2,7 +2,19 @@ const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
 const defaultApiUrl = import.meta.env.DEV
   ? "http://localhost:5000"
   : "https://applytrack-1-seei.onrender.com";
-const API_BASE_URL = `${(configuredApiUrl || defaultApiUrl)
+const isLocalApiUrl = (value) => {
+  try {
+    const hostname = new URL(value).hostname;
+    return hostname === "localhost"
+      || hostname.endsWith(".localhost")
+      || ["127.0.0.1", "0.0.0.0", "[::1]"].includes(hostname);
+  } catch {
+    return false;
+  }
+};
+const configuredApiUrlIsUsable = configuredApiUrl
+  && !(import.meta.env.PROD && isLocalApiUrl(configuredApiUrl));
+const API_BASE_URL = `${(configuredApiUrlIsUsable ? configuredApiUrl : defaultApiUrl)
   .replace(/(?:\/api)+\/?$/i, "")
   .replace(/\/+$/, "")}/api`;
 const TOKEN_KEY = "applytrack_token";
