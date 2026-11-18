@@ -16,11 +16,14 @@ const configuredOrigins = (process.env.CLIENT_URL || process.env.FRONTEND_URL ||
     .map((origin) => origin.trim())
     .filter(Boolean)
     .map((origin) => new URL(origin).origin);
-const allowedOrigins = configuredOrigins.length > 0
-    ? configuredOrigins
-    : process.env.NODE_ENV === "production"
-        ? []
-        : ["http://localhost:5173", "http://127.0.0.1:5173"];
+const allowedOrigins = [...new Set([
+    ...configuredOrigins,
+    ...(process.env.NODE_ENV === "production"
+        ? ["https://applytrack-live-2026.vercel.app"]
+        : configuredOrigins.length === 0
+            ? ["http://localhost:5173", "http://127.0.0.1:5173"]
+            : [])
+])];
 
 app.use(cors({
     origin(origin, callback) {

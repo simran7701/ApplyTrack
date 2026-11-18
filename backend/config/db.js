@@ -1,5 +1,7 @@
 const mongoose = require("mongoose");
 
+let connectionAttempt;
+
 const connectDB = async () => {
     const mongoUri = process.env.MONGO_URI?.trim();
     if (!mongoUri) {
@@ -26,8 +28,18 @@ const connectDB = async () => {
         throw new Error("MONGO_URI contains an unescaped # character; URL-encode reserved characters in the connection string");
     }
 
-    await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 10000 });
-    console.log("MongoDB connected successfully");
+    if (mongoose.connection.readyState === 1) return mongoose.connection;
+    if (!connectionAttempt) {
+        connectionAttempt = mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 10000 })
+            .then((connection) => {
+                console.log("MongoDB connected successfully");
+                return connection;
+            })
+            .finally(() => {
+                connectionAttempt = null;
+            });
+    }
+    return connectionAttempt;
 };
 
 module.exports = connectDB;

@@ -169,7 +169,7 @@ The `backend/render.yaml` Blueprint config uses `npm install`, `npm start`, and 
 
 ### Vercel (frontend)
 
-Import the repository into Vercel and set **Root Directory** to `frontend`. Build command: `npm run build`; output directory: `dist`. Add `VITE_API_URL=https://applytrack-1-seei.onrender.com/api` to Vercel's Environment Variables for Production and redeploy. The frontend defaults to this deployed API URL in production if the variable is omitted; the explicit Vercel setting remains recommended. The `frontend/vercel.json` rewrite supports client-side routes.
+Import the repository into Vercel and set **Root Directory** to `frontend`. Build command: `npm run build`; output directory: `dist`. Set `VITE_API_URL=https://applytrack-qcn6.onrender.com/api` in Vercel's Environment Variables for Production, then redeploy. The frontend defaults to this API URL if the variable is omitted. The `frontend/vercel.json` rewrite supports client-side routes.
 
 ### MongoDB Atlas
 
@@ -178,8 +178,8 @@ Use the cluster connection string for `MONGO_URI`, create a least-privilege data
 Deployment URLs:
 
 - Frontend: https://applytrack-live-2026.vercel.app/
-- API: https://applytrack-1-seei.onrender.com
-- Health: https://applytrack-1-seei.onrender.com/api/health
+- API: https://applytrack-qcn6.onrender.com
+- Health: https://applytrack-qcn6.onrender.com/api/health
 
 ## Screenshots
 

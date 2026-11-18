@@ -3,8 +3,8 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
 const User = require("../models/User");
+const connectDB = require("../config/db");
 const authenticate = require("../middleware/auth");
-const requireDatabase = require("../middleware/requireDatabase");
 
 const router = express.Router();
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -30,11 +30,8 @@ router.post("/register", async (req, res) => {
         console.error("JWT_SECRET is not configured");
         return res.status(503).json({ message: "Authentication is not configured on the server" });
     }
-    if (mongoose.connection.readyState !== 1) {
-        return res.status(503).json({ message: "Database unavailable. Please try again later." });
-    }
-
     try {
+        await connectDB();
         const normalizedEmail = email.trim().toLowerCase();
         if (await User.exists({ email: normalizedEmail })) {
             return res.status(409).json({ message: "An account with this email already exists" });
@@ -64,11 +61,8 @@ router.post("/login", async (req, res) => {
         console.error("JWT_SECRET is not configured");
         return res.status(503).json({ message: "Authentication is not configured on the server" });
     }
-    if (mongoose.connection.readyState !== 1) {
-        return res.status(503).json({ message: "Database unavailable. Please try again later." });
-    }
-
     try {
+        await connectDB();
         const user = await User.findOne({ email: email.trim().toLowerCase() }).select("+password");
         if (!user || !(await bcrypt.compare(password, user.password))) {
             return res.status(401).json({ message: "Email or password is incorrect" });
@@ -86,10 +80,8 @@ router.post("/login", async (req, res) => {
 });
 
 router.get("/me", authenticate, async (req, res) => {
-    if (mongoose.connection.readyState !== 1) {
-        return res.status(503).json({ message: "Database unavailable. Please try again later." });
-    }
     try {
+        await connectDB();
         const user = await User.findById(req.user.userId).select("name email");
         if (!user) return res.status(401).json({ message: "Account not found. Please sign in again." });
         return res.status(200).json({ user: { id: user._id, name: user.name, email: user.email } });
