@@ -1,8 +1,10 @@
-const API_BASE_URL = (
-  import.meta.env.VITE_API_URL || (import.meta.env.DEV
-    ? "http://localhost:5000/api"
-    : "https://applytrack-1-seei.onrender.com/api")
-).replace(/\/$/, "");
+const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
+const defaultApiUrl = import.meta.env.DEV
+  ? "http://localhost:5000"
+  : "https://applytrack-1-seei.onrender.com";
+const API_BASE_URL = `${(configuredApiUrl || defaultApiUrl)
+  .replace(/(?:\/api)+\/?$/i, "")
+  .replace(/\/+$/, "")}/api`;
 const TOKEN_KEY = "applytrack_token";
 
 export const getToken = () => window.localStorage.getItem(TOKEN_KEY);
@@ -23,7 +25,7 @@ async function request(path, options = {}) {
   try {
     response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
   } catch {
-    throw new Error("Cannot reach the ApplyTrack API. Check that the backend is running.");
+    throw new Error("Cannot reach the ApplyTrack API. Check the API URL and the backend's CORS settings.");
   }
 
   const payload = await response.json().catch(() => ({}));

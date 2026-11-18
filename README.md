@@ -99,7 +99,7 @@ if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 npm run dev
 ```
 
-Open the Vite URL (normally `http://localhost:5173`). The frontend calls `VITE_API_URL` from `frontend/.env`; in development it defaults to `http://localhost:5000/api`. Production builds require `VITE_API_URL` to point at the deployed backend.
+Open the Vite URL (normally `http://localhost:5173`). The frontend calls `VITE_API_URL` from `frontend/.env`; in development it defaults to `http://localhost:5000/api`. In production it defaults to the deployed backend. If configured, `VITE_API_URL` may be either the backend origin or the backend origin with `/api`; the frontend normalizes it to exactly one `/api` path.
 
 ### 3. Build checks
 
@@ -157,7 +157,7 @@ Replace `your-cluster.mongodb.net` with the hostname from your Atlas connection 
 1. Copy the current driver connection string from Atlas and verify the database username, password, and cluster hostname. URL-encode reserved characters in the username or password (`#` as `%23`, `@` as `%40`, `:` as `%3A`, `/` as `%2F`, `?` as `%3F`, `[` as `%5B`, `]` as `%5D`). Do not share the URI.
 2. Confirm Atlas Network Access permits connections from your local IP or the backend host. Prefer the narrowest allowlist supported by your deployment.
 3. Check that the network permits DNS SRV lookups and outbound MongoDB connections. A school/work network, VPN, or firewall may block them.
-4. Restart the backend and check `http://localhost:5000/api/health`. HTTP 200 reports `database: "connected"`; HTTP 503 reports `database: "disconnected"`. The server retries failed initial connections and redacts MongoDB credentials from connection error logs.
+4. Restart the backend and check `http://localhost:5000/api/health`. HTTP 200 reports `database: "connected"`; HTTP 503 reports `database: "disconnected"`. The server retries failed initial connections, reports later disconnect/reconnect events, and redacts MongoDB connection URLs from connection error logs.
 
 Never paste database connection strings or secrets into issue reports or chat.
 

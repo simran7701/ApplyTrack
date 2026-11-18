@@ -66,16 +66,26 @@ app.use((error, req, res, next) => {
 const PORT = Number(process.env.PORT) || 5000;
 const DATABASE_RETRY_DELAY_MS = 10000;
 
+const safeMongoErrorMessage = (error) => {
+    const message = error instanceof Error ? error.message : "Unknown database connection error";
+    return message.replace(/mongodb(?:\+srv)?:\/\/[^\s"'`]+/gi, "[MongoDB URI redacted]");
+};
+
+mongoose.connection.on("error", (error) => {
+    console.error("MongoDB connection error:", safeMongoErrorMessage(error));
+});
+mongoose.connection.on("disconnected", () => {
+    console.error("MongoDB disconnected; database requests will remain unavailable until reconnected");
+});
+mongoose.connection.on("reconnected", () => {
+    console.log("MongoDB reconnected successfully");
+});
+
 const connectDatabaseWithRetry = async () => {
     try {
         await connectDB();
     } catch (error) {
-        const message = error instanceof Error ? error.message : "Unknown database connection error";
-        const safeMessage = message.replace(
-            /mongodb(?:\+srv)?:\/\/[^\s"'`]+/gi,
-            "[MongoDB URI redacted]"
-        );
-        console.error("MongoDB connection failed:", safeMessage);
+        console.error("MongoDB connection failed:", safeMongoErrorMessage(error));
         const retry = setTimeout(connectDatabaseWithRetry, DATABASE_RETRY_DELAY_MS);
         retry.unref();
     }
