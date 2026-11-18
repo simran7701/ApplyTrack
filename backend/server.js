@@ -1,5 +1,3 @@
-const dns = require("dns");
-dns.setServers(["8.8.8.8", "1.1.1.1"]);
 require("dotenv").config();
 
 const express = require("express");
@@ -40,7 +38,6 @@ app.get("/", (req, res) => {
 
 app.get("/api/health", (req, res) => {
     const connected = mongoose.connection.readyState === 1;
-    console.log("MongoDB readyState:", mongoose.connection.readyState);
     res.status(connected ? 200 : 503).json({
         status: connected ? "ok" : "degraded",
         message: connected ? "API and database are available" : "API is running; database is unavailable",
@@ -67,11 +64,26 @@ app.use((error, req, res, next) => {
 });
 
 const PORT = Number(process.env.PORT) || 5000;
+const DATABASE_RETRY_DELAY_MS = 10000;
+
+const connectDatabaseWithRetry = async () => {
+    try {
+        await connectDB();
+    } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown database connection error";
+        const safeMessage = message.replace(
+            /mongodb(?:\+srv)?:\/\/[^\s"'`]+/gi,
+            "[MongoDB URI redacted]"
+        );
+        console.error("MongoDB connection failed:", safeMessage);
+        const retry = setTimeout(connectDatabaseWithRetry, DATABASE_RETRY_DELAY_MS);
+        retry.unref();
+    }
+};
+
 const server = app.listen(PORT, () => {
     console.log(`ApplyTrack API listening on port ${PORT}`);
-    connectDB().catch((error) => {
-        console.error("MongoDB connection failed:", error.message);
-    });
+    connectDatabaseWithRetry();
 });
 
 module.exports = { app, server };

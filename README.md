@@ -78,7 +78,7 @@ JWT_SECRET=<a-long-random-secret>
 CLIENT_URL=http://localhost:5173
 ```
 
-Use your Atlas **database user**, not your Atlas website login. URL-encode special characters in the database password (for example `@` becomes `%40`). Generate a signing secret with `node -p "require('node:crypto').randomBytes(48).toString('hex')"` and keep it only in `.env`; `.env` is ignored by Git.
+Use your Atlas **database user**, not your Atlas website login. URL-encode reserved characters in the username or password (for example `@` becomes `%40` and `#` becomes `%23`); a raw `@` or `#` can prevent the URI from identifying the correct database host. Generate a signing secret with `node -p "require('node:crypto').randomBytes(48).toString('hex')"` and keep it only in `.env`; `.env` is ignored by Git.
 
 Start the backend in one terminal:
 
@@ -154,10 +154,10 @@ Resolve-DnsName -Type SRV _mongodb._tcp.your-cluster.mongodb.net
 
 Replace `your-cluster.mongodb.net` with the hostname from your Atlas connection string.
 
-1. Copy the current driver connection string from Atlas and verify the database username, password, and cluster hostname. URL-encode special characters in the password.
+1. Copy the current driver connection string from Atlas and verify the database username, password, and cluster hostname. URL-encode reserved characters in the username or password (`#` as `%23`, `@` as `%40`, `:` as `%3A`, `/` as `%2F`, `?` as `%3F`, `[` as `%5B`, `]` as `%5D`). Do not share the URI.
 2. Confirm Atlas Network Access permits connections from your local IP or the backend host. Prefer the narrowest allowlist supported by your deployment.
 3. Check that the network permits DNS SRV lookups and outbound MongoDB connections. A school/work network, VPN, or firewall may block them.
-4. Restart the backend and check `http://localhost:5000/api/health`. HTTP 200 reports `database: "connected"`; HTTP 503 reports `database: "disconnected"`.
+4. Restart the backend and check `http://localhost:5000/api/health`. HTTP 200 reports `database: "connected"`; HTTP 503 reports `database: "disconnected"`. The server retries failed initial connections and redacts MongoDB credentials from connection error logs.
 
 Never paste database connection strings or secrets into issue reports or chat.
 
@@ -165,20 +165,21 @@ Never paste database connection strings or secrets into issue reports or chat.
 
 ### Render (backend)
 
-The `backend/render.yaml` Blueprint config uses `npm install`, `npm start`, and `/api/health`. Create a Render web service from the repository using the Blueprint, or configure a Node web service with **Root Directory** `backend`, **Build Command** `npm install`, and **Start Command** `npm start`. Set `MONGO_URI` and `CLIENT_URL` in the Render dashboard; use the deployed Vercel origin for `CLIENT_URL`. Create a strong unique `JWT_SECRET` (Render can generate it). Do not set or commit real credentials in the YAML or source.
+The `backend/render.yaml` Blueprint config uses `npm install`, `npm start`, and `/api/health`. Create a Render web service from the repository using the Blueprint, or configure a Node web service with **Root Directory** `backend`, **Build Command** `npm install`, and **Start Command** `npm start`. In Render's Environment settings, set `MONGO_URI` to the current Atlas connection string with reserved username/password characters URL-encoded (in particular, replace raw `@` with `%40` and `#` with `%23`), and set `CLIENT_URL=https://applytrack-live-2026.vercel.app`. Create a strong unique `JWT_SECRET` (Render can generate it). Save the settings and trigger a deploy/restart. Do not set or commit real credentials in the YAML or source.
 
 ### Vercel (frontend)
 
-Import the repository into Vercel and set **Root Directory** to `frontend`. Build command: `npm run build`; output directory: `dist`. Add `VITE_API_URL=https://<your-render-service>.onrender.com/api`. The `frontend/vercel.json` rewrite supports client-side routes.
+Import the repository into Vercel and set **Root Directory** to `frontend`. Build command: `npm run build`; output directory: `dist`. Add `VITE_API_URL=https://applytrack-1-seei.onrender.com/api` to Vercel's Environment Variables for Production and redeploy. The frontend defaults to this deployed API URL in production if the variable is omitted; the explicit Vercel setting remains recommended. The `frontend/vercel.json` rewrite supports client-side routes.
 
 ### MongoDB Atlas
 
 Use the cluster connection string for `MONGO_URI`, create a least-privilege database user, and configure Network Access for the backend host. Avoid committing `.env` files.
 
-Deployment URLs (fill after deployment):
+Deployment URLs:
 
-- Frontend: `<your-vercel-url>`
-- API: `<your-render-url>`
+- Frontend: https://applytrack-live-2026.vercel.app/
+- API: https://applytrack-1-seei.onrender.com
+- Health: https://applytrack-1-seei.onrender.com/api/health
 
 ## Screenshots
 
